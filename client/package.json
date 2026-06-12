@@ -1,0 +1,33 @@
+{
+  "name": "@trace-ai-cs/client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Trace AI CS Frontend - 实时对话式 AI 前端",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "@arco-design/web-react": "^2.65.0",
+    "@reduxjs/toolkit": "^2.5.0",
+    "@volcengine/rtc": "~4.66.20",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^6.28.0",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.15.0",
+    "less": "^4.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  }
+}

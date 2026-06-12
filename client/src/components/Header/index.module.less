@@ -1,0 +1,58 @@
+.header {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background: #fff;
+  border-bottom: 1px solid var(--line-color-border-2, #eaedf1);
+
+  .header-logo {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+
+    .header-setting-btn {
+      font-size: 20px;
+      color: #4e5969;
+      cursor: pointer;
+    }
+
+    .header-logo-text {
+      font-family: PingFang SC;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 24px;
+      color: #1b1e3d;
+    }
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+
+    .header-right-text {
+      font-family: PingFang SC;
+      font-size: 14px;
+      font-weight: 400;
+      color: #4e5969;
+      cursor: pointer;
+
+      &:hover {
+        color: var(--primary-color, #1664ff);
+      }
+    }
+  }
+
+  .menu-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+}

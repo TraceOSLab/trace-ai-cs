@@ -1,0 +1,9 @@
+{
+  "name": "@trace-ai-cs/server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd .. && source .venv/bin/activate && uvicorn server.app:app --reload --host 0.0.0.0 --port 3001",
+    "start": "cd .. && uvicorn server.app:app --host 0.0.0.0 --port 3001"
+  }
+}

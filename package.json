@@ -1,0 +1,20 @@
+{
+  "name": "trace-ai-cs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trace AI Conversational System - 基于火山引擎 RTC 的实时对话式 AI 系统",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @trace-ai-cs/server dev\" \"pnpm --filter @trace-ai-cs/client dev\"",
+    "dev:client": "pnpm --filter @trace-ai-cs/client dev",
+    "dev:server": "pnpm --filter @trace-ai-cs/server dev",
+    "build": "pnpm --filter @trace-ai-cs/client build",
+    "lint": "pnpm --filter @trace-ai-cs/client lint",
+    "clean": "pnpm -r exec rm -rf node_modules dist"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

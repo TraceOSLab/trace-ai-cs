@@ -1,0 +1,33 @@
+.userTagWrapper {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(90deg, #004fff 0%, #9865ff 100%);
+  border-radius: 20px;
+  padding: 2px 8px 2px 2px;
+
+  .iconContainer {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  .nameContainer {
+    margin-left: 4px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
