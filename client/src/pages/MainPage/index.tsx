@@ -4,10 +4,16 @@ import Header from '@/components/Header';
 import ResizeWrapper from '@/components/ResizeWrapper';
 import Menu from './Menu';
 import { useIsMobile } from '@/utils/utils';
-import Apis from '@/app/index';
+import Apis from '@/api/index';
 import MainArea from './MainArea';
 import { ABORT_VISIBILITY_CHANGE, useLeave } from '@/lib/useCommon';
-import { RTCConfig, SceneConfig, updateRTCConfig, updateScene, updateSceneConfig } from '@/store/slices/room';
+import {
+  RTCConfig,
+  SceneConfig,
+  updateRTCConfig,
+  updateScene,
+  updateSceneConfig,
+} from '@/store/slices/room';
 import styles from './index.module.less';
 
 export default function MainPage() {
@@ -16,15 +22,12 @@ export default function MainPage() {
   const isMobile = useIsMobile();
 
   const getScenes = async () => {
-    const {
-      scenes,
-    }: {
-      scenes: { rtc: RTCConfig; scene: SceneConfig }[];
-    } = await Apis.Basic.getScenes();
+    const res: any = await Apis.Basic.getScenes();
+    const scenes: any[] = res?.scenes || [];
     dispatch(updateScene(scenes[0]?.scene?.id || ''));
     dispatch(
       updateSceneConfig(
-        scenes.reduce<Record<string, SceneConfig>>((prev, cur) => {
+        scenes.reduce((prev: any, cur: any) => {
           prev[cur.scene.id] = cur.scene;
           return prev;
         }, {}),
@@ -32,7 +35,7 @@ export default function MainPage() {
     );
     dispatch(
       updateRTCConfig(
-        scenes.reduce<Record<string, RTCConfig>>((prev, cur) => {
+        scenes.reduce((prev: any, cur: any) => {
           prev[cur.scene.id] = cur.rtc;
           return prev;
         }, {}),
@@ -70,4 +73,3 @@ export default function MainPage() {
     </ResizeWrapper>
   );
 }
- 

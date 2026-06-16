@@ -4,25 +4,24 @@
 
 import uuid
 import time
-from typing import Dict, Any
+from typing import Any, Dict, List, Optional
 
-from ..token import AccessToken, Privileges
-from ..schemas import SceneListItem, SceneConfigOut, RTCConfigOut
+from ..rtc_token import AccessToken, Privileges
+from ..schemas import SceneConfigOut, RTCConfigOut
 
 
-def build_scene_list(scenes: Dict[str, Any]) -> list[SceneListItem]:
+def build_scene_list(
+    scenes: Dict[str, Any], filter_ids: Optional[List[str]] = None
+) -> List[dict]:
     """
-    根据原始场景配置构建 SceneListItem 列表，并为每个场景生成 RTC Token。
-
-    Args:
-        scenes: read_files() 加载的场景字典 {scene_id: scene_data}
-
-    Returns:
-        SceneListItem 列表
+    根据原始场景配置构建场景列表，并为每个场景生成 RTC Token。
     """
-    items: list[SceneListItem] = []
+    items: List[dict] = []
 
     for scene_id, scene_data in scenes.items():
+        if filter_ids and scene_id not in filter_ids:
+            continue
+
         scene_config = dict(scene_data.get("SceneConfig", {}))
         rtc_config = scene_data.get("RTCConfig", {})
         voice_chat = scene_data.get("VoiceChat", {})
@@ -33,16 +32,12 @@ def build_scene_list(scenes: Dict[str, Any]) -> list[SceneListItem]:
         app_key = rtc_config.get("AppKey", "")
         token = rtc_config.get("Token", "")
 
-        # 如果 AppId 和 AppKey 都存在，重新生成 Token
         if app_id and app_key:
             room_id = room_id or str(uuid.uuid4())
             user_id = user_id or str(uuid.uuid4())
-
-            # 同步更新 VoiceChat 中的 room / user
             voice_chat["RoomId"] = room_id
-            if (
-                "AgentConfig" in voice_chat
-                and voice_chat["AgentConfig"].get("TargetUserId")
+            if "AgentConfig" in voice_chat and voice_chat["AgentConfig"].get(
+                "TargetUserId"
             ):
                 voice_chat["AgentConfig"]["TargetUserId"][0] = user_id
 
@@ -52,11 +47,9 @@ def build_scene_list(scenes: Dict[str, Any]) -> list[SceneListItem]:
             key.expire_time(int(time.time()) + (24 * 3600))
             token = key.serialize()
 
-        # 提取场景元信息
         agent_config = voice_chat.get("AgentConfig", {})
-        llm_config = voice_chat.get("Config", {}).get("LLMConfig", {})
-        vision_config = llm_config.get("VisionConfig", {})
-        avatar_config = voice_chat.get("Config", {}).get("AvatarConfig", {})
+        llm_cfg = voice_chat.get("Config", {}).get("LLMConfig", {})
+        avatar_cfg = voice_chat.get("Config", {}).get("AvatarConfig", {})
 
         scene_out = SceneConfigOut(
             id=scene_id,
@@ -64,19 +57,19 @@ def build_scene_list(scenes: Dict[str, Any]) -> list[SceneListItem]:
             icon=scene_config.get("icon", ""),
             botName=agent_config.get("UserId", ""),
             isInterruptMode=voice_chat.get("Config", {}).get("InterruptMode", 0) == 0,
-            isVision=vision_config.get("Enable", False),
-            isScreenMode=vision_config.get("SnapshotConfig", {}).get("StreamType", 0) == 1,
-            isAvatarScene=avatar_config.get("Enabled", False),
-            avatarBgUrl=avatar_config.get("BackgroundUrl", ""),
+            isVision=llm_cfg.get("VisionConfig", {}).get("Enable", False),
+            isScreenMode=llm_cfg.get("VisionConfig", {})
+            .get("SnapshotConfig", {})
+            .get("StreamType", 0)
+            == 1,
+            isAvatarScene=avatar_cfg.get("Enabled", False),
+            avatarBgUrl=avatar_cfg.get("BackgroundUrl", ""),
         )
 
         rtc_out = RTCConfigOut(
-            AppId=app_id,
-            RoomId=room_id,
-            UserId=user_id,
-            Token=token,
+            AppId=app_id, RoomId=room_id, UserId=user_id, Token=token
         )
 
-        items.append(SceneListItem(scene=scene_out, rtc=rtc_out))
+        items.append({"scene": scene_out.model_dump(), "rtc": rtc_out.model_dump()})
 
     return items

@@ -2,12 +2,11 @@
 场景相关 Schema
 """
 
-from typing import Optional
 from pydantic import BaseModel, Field
 
 
 class SceneConfigOut(BaseModel):
-    """场景展示配置（返回给前端）"""
+    """场景展示配置"""
     id: str = Field(..., description="场景标识符")
     name: str = Field("", description="场景显示名称")
     icon: str = Field("", description="场景图标 URL")
@@ -20,28 +19,8 @@ class SceneConfigOut(BaseModel):
 
 
 class RTCConfigOut(BaseModel):
-    """RTC 配置（含 Token，返回给前端）"""
+    """RTC 配置（含 Token）"""
     AppId: str = Field(..., description="火山引擎 RTC 应用 ID")
     RoomId: str = Field(..., description="RTC 房间 ID")
     UserId: str = Field(..., description="当前用户 ID")
-    Token: str = Field(..., description="RTC 接入 Token（HMAC-SHA256 签名）")
-
-
-class SceneListItem(BaseModel):
-    """场景列表中的单项"""
-    scene: SceneConfigOut = Field(..., description="场景展示信息")
-    rtc: RTCConfigOut = Field(..., description="RTC 接入信息")
-
-
-class GetScenesResult(BaseModel):
-    """getScenes 的业务结果"""
-    scenes: list[SceneListItem] = Field(..., description="场景列表")
-
-
-class GetScenesOut(BaseModel):
-    """getScenes 响应"""
-    ResponseMetadata: dict = Field(
-        default_factory=lambda: {"Action": "getScenes"},
-        description="响应元数据",
-    )
-    Result: Optional[GetScenesResult] = Field(None, description="场景列表数据")
+    Token: str = Field(..., description="RTC 接入 Token")

@@ -19,9 +19,7 @@
     "RoomId": "",
     "TaskId": "",
     "AgentConfig": {
-      "TargetUserId": [
-        ""
-      ],
+      "TargetUserId": [""],
       "WelcomeMessage": "",
       "UserId": "",
       "EnableConversationStateCallback": true
@@ -38,10 +36,7 @@
       "TTSConfig": {
         "Provider": "volcano",
         "ProviderParams": {
-          "app": {
-            "appid": "",
-            "cluster": "volcano_tts"
-          },
+          "app": { "appid": "", "cluster": "volcano_tts" },
           "audio": {
             "voice_type": "BV001_streaming",
             "speed_ratio": 1,
@@ -51,14 +46,9 @@
         }
       },
       "LLMConfig": {
-        "Mode": "ArkV3",
-        "EndPointId": "",
-        "SystemMessages": [
-          ""
-        ],
-        "VisionConfig": {
-          "Enable": false
-        }
+        "Mode": "CustomLLM",
+        "Url": "${CUSTOMLLM_CALLBACK_URL}",
+        "APIKey": ""
       },
       "AvatarConfig": {
         "Enabled": false,
@@ -71,5 +61,14 @@
       },
       "InterruptMode": 0
     }
+  },
+  "LLMChannel": {
+    "channel_id": "openai",
+    "api_key": "",
+    "model": "gpt-4o",
+    "base_url": "https://api.openai.com/v1",
+    "system_prompt": "你是智能客服助手，请简洁准确地回答用户的问题。",
+    "max_tokens": 4096,
+    "temperature": 0.7
   }
 }

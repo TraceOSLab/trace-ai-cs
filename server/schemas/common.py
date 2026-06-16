@@ -9,8 +9,7 @@ from pydantic import BaseModel, Field
 class ProxyRequest(BaseModel):
     """AIGC API 代理请求体"""
     SceneID: str = Field(
-        ...,
-        description="场景标识符，与 scenes/ 目录下的文件名（不含后缀）对应",
+        ..., description="场景标识符",
         json_schema_extra={"examples": ["Custom"]},
     )
 
@@ -19,18 +18,9 @@ class WrapperResponse(BaseModel):
     """统一响应包装"""
     ResponseMetadata: Dict[str, Any] = Field(
         default_factory=lambda: {"Action": "unknown"},
-        description="响应元数据（Action / RequestId / Error）",
+        description="响应元数据",
     )
-    Result: Optional[Dict[str, Any]] = Field(
-        None, description="业务数据（成功时存在）"
-    )
-
-
-class ErrorResponse(BaseModel):
-    """错误响应"""
-    ResponseMetadata: Dict[str, Any] = Field(
-        ..., description="包含 Error 信息的元数据"
-    )
+    Result: Optional[Dict[str, Any]] = Field(None, description="业务数据")
 
 
 class HealthResponse(BaseModel):

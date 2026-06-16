@@ -20,14 +20,12 @@ export interface RequestResponse {
 }
 
 type TupleToUnion<T extends readonly unknown[]> = T[number];
-type RequestFn = <T extends keyof RequestResponse>(params?: RequestParams[T]) => RequestResponse[T];
-type PromiseRequestFn = <T extends keyof RequestResponse>(
-  params?: RequestParams[T]
-) => Promise<RequestResponse[T]>;
 
 export type ApiConfig = { action: string; method: string; apiPath?: string };
 export type ApiNames<T extends readonly ApiConfig[]> = TupleToUnion<T>['action'];
+
+// 宽松的 Apis 类型，支持任意参数/返回
 export type Apis<T extends readonly ApiConfig[]> = Record<
   ApiNames<T>,
-  RequestFn | PromiseRequestFn
+  (params?: any) => Promise<any>
 >;

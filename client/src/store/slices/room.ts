@@ -110,10 +110,7 @@ export const roomSlice = createSlice({
   name: 'room',
   initialState,
   reducers: {
-    localJoinRoom: (
-      state,
-      { payload }: { payload: { roomId: string; user: LocalUser } }
-    ) => {
+    localJoinRoom: (state, { payload }: { payload: { roomId: string; user: LocalUser } }) => {
       state.roomId = payload.roomId;
       state.localUser = { ...state.localUser, ...payload.user };
       state.isJoined = true;
@@ -121,11 +118,7 @@ export const roomSlice = createSlice({
     localLeaveRoom: (state) => {
       state.roomId = undefined;
       state.time = -1;
-      state.localUser = {
-        publishAudio: false,
-        publishVideo: false,
-        publishScreen: false,
-      };
+      state.localUser = { publishAudio: false, publishVideo: false, publishScreen: false };
       state.remoteUsers = [];
       state.isJoined = false;
     },
@@ -133,10 +126,8 @@ export const roomSlice = createSlice({
       state.remoteUsers.push(payload);
     },
     remoteUserLeave: (state, { payload }) => {
-      const findIndex = state.remoteUsers.findIndex((user) => user.userId === payload.userId);
-      if (findIndex >= 0) {
-        state.remoteUsers.splice(findIndex, 1);
-      }
+      const idx = state.remoteUsers.findIndex((u) => u.userId === payload.userId);
+      if (idx >= 0) state.remoteUsers.splice(idx, 1);
     },
     updateScene: (state, { payload }) => {
       state.scene = payload;
@@ -163,27 +154,22 @@ export const roomSlice = createSlice({
       state.networkQuality = payload.networkQuality;
     },
     updateRemoteUser: (state, { payload }: { payload: IUser | IUser[] }) => {
-      if (!Array.isArray(payload)) {
-        payload = [payload];
-      }
-      payload.forEach((user) => {
-        const findIndex = state.remoteUsers.findIndex((u) => u.userId === user.userId);
-        if (findIndex >= 0) {
-          state.remoteUsers[findIndex] = { ...state.remoteUsers[findIndex], ...user };
-        }
+      const users = Array.isArray(payload) ? payload : [payload];
+      users.forEach((user) => {
+        const idx = state.remoteUsers.findIndex((u) => u.userId === user.userId);
+        if (idx >= 0) state.remoteUsers[idx] = { ...state.remoteUsers[idx], ...user };
       });
     },
     updateRoomTime: (state, { payload }) => {
       state.time = payload.time;
     },
     addAutoPlayFail: (state, { payload }) => {
-      const index = state.autoPlayFailUser.findIndex((item) => item === payload.userId);
-      if (index === -1) {
+      if (!state.autoPlayFailUser.includes(payload.userId)) {
         state.autoPlayFailUser.push(payload.userId);
       }
     },
     removeAutoPlayFail: (state, { payload }) => {
-      state.autoPlayFailUser = state.autoPlayFailUser.filter((item) => item !== payload.userId);
+      state.autoPlayFailUser = state.autoPlayFailUser.filter((uid) => uid !== payload.userId);
     },
     clearAutoPlayFail: (state) => {
       state.autoPlayFailUser = [];
@@ -205,16 +191,16 @@ export const roomSlice = createSlice({
     },
     setHistoryMsg: (state, { payload }) => {
       const { paragraph, definite } = payload;
-      const lastMsg = state.msgHistory.at(-1) || {};
+      const lastMsg = state.msgHistory.at(-1);
       const currentSceneConfig = state.sceneConfigMap[state.scene];
       const fromBot =
         payload.user === currentSceneConfig?.botName ||
         payload.user.includes('voiceChat_');
       const currentSubtitleMode = currentSceneConfig?.isAvatarScene ? 1 : 0;
       const lastMsgCompleted =
-        !fromBot || currentSubtitleMode ? lastMsg.paragraph : lastMsg.definite;
+        !fromBot || currentSubtitleMode ? lastMsg?.paragraph : lastMsg?.definite;
 
-      if (state.msgHistory.length) {
+      if (lastMsg) {
         if (lastMsgCompleted) {
           state.msgHistory.push({
             value: payload.text,
@@ -246,12 +232,10 @@ export const roomSlice = createSlice({
     setInterruptMsg: (state) => {
       state.isAITalking = false;
       if (!state.msgHistory.length) return;
-      for (let id = state.msgHistory.length - 1; id >= 0; id--) {
-        const msg = state.msgHistory[id];
-        if (msg.value) {
-          if (!msg.definite) {
-            state.msgHistory[id].isInterrupted = true;
-          }
+      for (let i = state.msgHistory.length - 1; i >= 0; i--) {
+        const msg = state.msgHistory[i];
+        if (msg.value && !msg.definite) {
+          state.msgHistory[i].isInterrupted = true;
           break;
         }
       }

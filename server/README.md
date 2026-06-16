@@ -12,97 +12,84 @@
 ## 本地开发
 
 ```bash
-# 创建虚拟环境
 cd trace-ai-cs
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 安装依赖
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r server/requirements.txt
-
-# 启动开发服务
 uvicorn server.app:app --reload --host 0.0.0.0 --port 3001
 ```
 
+交互式文档：`http://localhost:3001/docs`
+
 ## API 接口
 
-### POST /getScenes
-获取场景配置列表，自动生成 RTC Token。
+| 方法 | 路径            | 说明                                   |
+| ---- | --------------- | -------------------------------------- |
+| GET  | `/health`       | 健康检查                               |
+| POST | `/getScenes`    | 获取场景配置列表 + RTC Token           |
+| POST | `/proxy`        | 代理 AIGC OpenAPI                      |
+| POST | `/llm/callback` | **CustomLLM 回调接口**（火山引擎调用） |
+| GET  | `/llm/channels` | 获取可用 LLM 渠道列表                  |
 
-### POST /proxy
-代理 AIGC OpenAPI 请求。
+## 目录结构
 
-支持 Action:
-- StartVoiceChat: 启动语音对话
-- StopVoiceChat: 停止语音对话
-
-### GET /health
-健康检查。
-
-## 场景配置
-
-场景配置文件位于 `scenes/` 目录下，每个文件为一个场景的 JSON 配置。
-
-配置说明:
-
-| 字段 | 说明 |
-|------|------|
-| SceneConfig | 场景展示配置 |
-| AccountConfig | 火山引擎账号配置 |
-| RTCConfig | RTC 配置 |
-| VoiceChat | 语音对话配置 |
-| VoiceChat.Config.ASRConfig | 语音识别配置 |
-| VoiceChat.Config.TTSConfig | 语音合成配置 |
-| VoiceChat.Config.LLMConfig | 大语言模型配置 |
-| VoiceChat.Config.AvatarConfig | 数字人配置 |
-
-## 配置管理
-
-### 场景配置
-
-场景配置文件位于 `scenes/` 目录，使用 `.example.json` 作为模板，`.json` 作为你的真实配置。
-
-```bash
-# 从模板创建配置
-cp scenes/Custom.example.json scenes/Custom.json
-
-# 编辑 scenes/Custom.json，填入你的火山引擎凭证
+```
+server/
+├── app.py              # 入口
+├── routers/            # 路由层
+├── schemas/            # Pydantic 数据模型
+├── services/           # 业务逻辑层
+├── token.py            # RTC Token 算法
+├── util.py             # 工具函数
+└── scenes/             # 场景配置 JSON
 ```
 
-`.gitignore` 已配置排除 `scenes/*.json`，只有 `.example.json` 会被提交到仓库。
+## 接入第三方大模型
 
-### 方式二：使用 .env（推荐）
+火山引擎 RTC AIGC 通过 **CustomLLM 回调模式** 接入第三方模型：
 
-在项目根目录创建 `.env` 文件，参考 `.env.example`：
-
-```bash
-cp .env.example .env
-# 编辑 .env 填入你的火山引擎凭据
+```
+火山引擎 RTC  → 回调 POST /llm/callback  →  转发到真实 LLM 渠道
+                (SSE 流式)                    (OpenAI/DeepSeek/自定义)
 ```
 
-然后在场景 JSON 中使用 `${VAR_NAME}` 引用环境变量（参考 `Custom.example.json`）。
-系统会在加载配置时自动将 `${VAR}` 替换为 `.env` 中的值。
+### 配置方式
+
+在场景 JSON 中配置 `LLMConfig.Mode = "CustomLLM"`，并填写回调地址：
 
 ```json
 {
-  "AccountConfig": {
-    "accessKeyId": "${VOLC_ACCESS_KEY_ID}",
-    "secretKey": "${VOLC_SECRET_KEY}"
+  "LLMConfig": {
+    "Mode": "CustomLLM",
+    "Url": "http://your-server:3001/llm/callback",
+    "APIKey": ""
   }
 }
 ```
 
-### 支持的环境变量
+在 `LLMChannel` 中配置回调背后实际使用的模型渠道：
 
-| 变量名 | 说明 |
-|--------|------|
-| `VOLC_ACCESS_KEY_ID` | 火山引擎 Access Key ID |
-| `VOLC_SECRET_KEY` | 火山引擎 Secret Key |
-| `RTC_APP_ID` | RTC 应用 ID |
-| `RTC_APP_KEY` | RTC 应用 Key（用于 Token 签名） |
-| `RTC_ROOM_ID` | RTC 房间 ID |
-| `RTC_USER_ID` | 用户 ID |
-| `ASR_APP_ID` | 语音识别 AppId |
-| `TTS_APP_ID` | 语音合成 AppId |
-| `LLM_ENDPOINT_ID` | LLM 接入点 ID |
-| `AVATAR_APP_ID` | 数字人 AppId（可选） |
+```json
+{
+  "LLMChannel": {
+    "channel_id": "openai",
+    "api_key": "${OPENAI_API_KEY}",
+    "model": "gpt-4o",
+    "base_url": "https://api.openai.com/v1",
+    "system_prompt": "你是智能 AI 助手",
+    "max_tokens": 4096,
+    "temperature": 0.7
+  }
+}
+```
+
+### 支持的渠道
+
+| channel_id | 说明                            | 默认模型        |
+| ---------- | ------------------------------- | --------------- |
+| `openai`   | OpenAI 官方 API                 | `gpt-4o`        |
+| `deepseek` | DeepSeek                        | `deepseek-chat` |
+| `custom`   | 任意兼容 OpenAI Chat API 的服务 | —               |
+
+### 扩展自定义渠道
+
+在 `server/services/llm_channel.py` 中添加新渠道的处理逻辑即可。

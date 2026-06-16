@@ -1,19 +1,31 @@
 # Trace AI Conversational System
 
-基于火山引擎 RTC 的实时对话式 AI 系统。
+基于火山引擎 RTC 的实时对话式 AI 系统，支持接入第三方大模型。
 
 ## 项目结构
 
 ```
 trace-ai-cs/
-├── client/          # 前端项目 (React + TypeScript + Vite)
-│   ├── src/         # 源代码
+├── client/                     # 前端项目 (React + TypeScript + Vite)
+│   ├── src/
+│   │   ├── api/                # API 层
+│   │   ├── components/         # 通用组件
+│   │   │   ├── LLMProviderSelect/  # LLM 提供商选择组件
+│   │   │   └── SceneConfigPanel/   # 场景配置编辑面板
+│   │   ├── lib/                # RTC 核心逻辑
+│   │   ├── pages/              # 页面组件
+│   │   ├── store/              # Redux 状态管理
+│   │   └── utils/              # 工具函数
 │   └── package.json
-├── server/          # 后端项目 (Python + FastAPI)
-│   ├── scenes/      # 场景配置
-│   ├── app.py       # 主服务
+├── server/                     # 后端项目 (Python + FastAPI)
+│   ├── routers/                # 路由层
+│   ├── schemas/                # Pydantic 数据模型
+│   ├── services/               # 业务逻辑层
+│   ├── scenes/                 # 场景配置 JSON
+│   ├── app.py                  # 主入口
 │   └── requirements.txt
-├── package.json     # 根 workspace 配置
+├── .env.example                # 环境变量模板
+├── package.json                # 根 workspace 配置
 └── pnpm-workspace.yaml
 ```
 
@@ -55,10 +67,34 @@ pnpm --filter @trace-ai-cs/client dev
 pnpm dev
 ```
 
+## 配置管理
+
+### 文件说明
+
+| 文件                                | 作用                                  | Git 提交 |
+| ----------------------------------- | ------------------------------------- | -------- |
+| `.env`                              | 账号级凭证（accessKeyId / secretKey） | ❌       |
+| `server/scenes/Custom.json`         | 场景真实配置                          | ❌       |
+| `server/scenes/Custom.example.json` | 场景配置模板                          | ✅       |
+
+### 首次配置
+
+```bash
+# 1. 配置账号凭证
+cp .env.example .env
+# 编辑 .env 填入火山引擎凭证
+
+# 2. 创建场景配置
+cp server/scenes/Custom.example.json server/scenes/Custom.json
+# 编辑 Custom.json 填入 AppId、ASR/TTS/LLM 配置
+```
+
 ## 功能特性
 
 - 实时语音对话 AI
 - 多场景切换
+- 支持第三方大模型（DeepSeek、OpenAI 兼容接口）
+- LLM 提供商选择 UI
 - 视频通话支持
 - 屏幕共享
 - 数字人交互
@@ -69,44 +105,22 @@ pnpm dev
 ## 技术栈
 
 ### 前端
+
 - React 18 + TypeScript
 - Redux Toolkit (状态管理)
 - Vite (构建工具)
-- Arco Design (UI 组件)
-- @volcengine/rtc (RTC SDK)
+- Arco Design (UI 组件库)
+- @volcengine/rtc (RTC SDK)x
 
 ### 后端
+
 - Python 3.12
 - FastAPI (异步框架)
 - httpx (HTTP 客户端)
 - 火山引擎 OpenAPI
 
-## 配置管理
+## 文档
 
-### 文件说明
+- [Server API 文档](server/README.md) — 后端接口说明和配置指南
 
-| 文件 | 作用 | 是否提交到 Git |
-|------|------|--------------|
-| `server/scenes/Custom.json` | **你的真实配置**（含 accessKeyId 等凭据） | ❌ `.gitignore` 排除 |
-| `server/scenes/Custom.example.json` | 模板文件，敏感字段留空 | ✅ 提交到仓库 |
-
-### 首次使用
-
-```bash
-# 1. 创建你的场景配置
-cp server/scenes/Custom.example.json server/scenes/Custom.json
-
-# 2. 编辑 server/scenes/Custom.json，填入你的火山引擎凭据
-```
-
-### 添加新场景
-
-每个场景是一个独立的 JSON 文件，可以配置各自的 ASR / TTS / LLM：
-
-```bash
-cp server/scenes/Custom.example.json server/scenes/Interview.json
-# 编辑 Interview.json，填入你的场景配置
-# 系统会自动加载它（.json 优先于 .example.json）
-```
-
-### Git 初始化
+接口交互式文档：启动后端后访问 `http://localhost:3001/docs`

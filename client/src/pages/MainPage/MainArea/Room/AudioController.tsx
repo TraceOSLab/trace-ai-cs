@@ -18,7 +18,7 @@ function AudioController(props: React.HTMLAttributes<HTMLDivElement>) {
   const { isAudioPublished } = useDeviceState();
   const { isAITalking } = room;
   const isAIReady = room.msgHistory.length > 0;
-  const isLoading = volume >= THRESHOLD_VOLUME && isAudioPublished;
+  const isLoading = (volume >= THRESHOLD_VOLUME) && !!isAudioPublished;
 
   const handleInterrupt = () => {
     RtcClient.commandAgent({

@@ -23,7 +23,7 @@ import VERTC, {
   ScreenEncoderConfig,
 } from '@volcengine/rtc';
 import { Message } from '@arco-design/web-react';
-import Apis from '@/app/index';
+import Apis from '@/api/index';
 import RTCAIAnsExtension from '@volcengine/rtc/extension-ainr';
 import { string2tlv } from '@/utils/utils';
 import { COMMAND, INTERRUPT_PRIORITY } from '@/utils/handler';
