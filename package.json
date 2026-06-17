@@ -9,12 +9,24 @@
     "dev:server": "pnpm --filter @trace-ai-cs/server dev",
     "build": "pnpm --filter @trace-ai-cs/client build",
     "lint": "pnpm --filter @trace-ai-cs/client lint",
-    "clean": "pnpm -r exec rm -rf node_modules dist"
+    "commit": "czg",
+    "commitlint": "commitlint",
+    "clean": "pnpm -r exec rm -rf node_modules dist",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "concurrently": "^8.2.2",
+    "czg": "^1.13.1",
+    "husky": "^9.1.7"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "config": {
+    "commitizen": {
+      "name": "czg"
+    }
   }
 }

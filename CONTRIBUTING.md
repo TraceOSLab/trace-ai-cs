@@ -34,6 +34,12 @@ main            ← 稳定版本，随时可部署
 
 **scope 取值**: `server` / `client` / `docs` / `root` (根配置) / 省略 (全局)
 
+### 自动校验
+
+项目已通过 **husky** + **commitlint** 自动校验 commit message 格式。提交时如果格式不符合规范，commit 会被拒绝。
+
+使用 `pnpm commit` 可启动交互式提交向导，自动生成符合规范的 commit message。
+
 ## 代码规范
 
 ### Python (`server/`)

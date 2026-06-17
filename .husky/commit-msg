@@ -1,0 +1,3 @@
+# commitlint — validate commit message
+export PATH="node_modules/.bin:$PATH"
+pnpm commitlint --edit "$1"
