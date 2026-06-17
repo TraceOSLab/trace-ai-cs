@@ -5,12 +5,14 @@
 ## 分支策略
 
 ```
-main          ← 稳定版本，随时可部署
-  └─ codex/<描述>  ← 功能分支 (前缀 codex/)
+main            ← 稳定版本，随时可部署
+  ├─ feature/<描述>  ← 功能分支
+  └─ hotfix/<描述>   ← 紧急修复分支
 ```
 
-- 从 `main` 创建功能分支: `git checkout -b codex/add-rag-search`
-- 完成后合并回 `main`
+- 从 `main` 创建功能分支: `git checkout -b feature/add-rag-search`
+- 紧急修复: `git checkout -b hotfix/fix-token-error`
+- 完成后合并回 `main`；hotfix 同时合并回 `feature` 分支
 
 ## Commit 规范
 
@@ -59,7 +61,7 @@ main          ← 稳定版本，随时可部署
 
 ## Pull Request 流程
 
-1. 在 `codex/<描述>` 分支上开发
+1. 在 `feature/<描述>` 或 `hotfix/<描述>` 分支上开发
 2. 确保前端 `tsc --noEmit` 和后端 `python -c "from server.app import app"` 均通过
 3. 创建 PR，描述做了什么、为什么这样做、测试方式
 4. 合并后删除特性分支
@@ -70,7 +72,7 @@ main          ← 稳定版本，随时可部署
 
 | 改动 | 需更新的文档 |
 |------|------------|
-| 新增接口 | `AGENTS.md` API 表格, `server/README.md`, `docs/ARCHITECTURE.md` |
+| 新增接口 | `AGENTS.md` API 表格, `docs/ARCHITECTURE.md` |
 | 新配置项 | `docs/CONFIGURATION.md` |
 | 新增依赖 | `AGENTS.md` 技术栈表, `docs/PROJECT.md` |
 | 状态管理变更 | `docs/ARCHITECTURE.md` Redux 结构 |

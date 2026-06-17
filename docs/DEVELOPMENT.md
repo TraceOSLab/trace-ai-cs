@@ -62,6 +62,8 @@ trace-ai-cs/
 
 **原则**: routers 不写业务逻辑，services 不操作请求/响应，schemas 只定义数据结构。
 
+详细架构见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
 ## 日常开发流程
 
 ```bash
@@ -165,30 +167,35 @@ pnpm build
 uvicorn server.app:app --host 0.0.0.0 --port 3001
 ```
 
-## 代码规范
+## 收尾验证
 
-### Python
-- 遵循 PEP 8
-- 类型注解: 函数签名必须标注参数和返回类型
-- Pydantic v2 语法 (`.model_dump()` 非 `.dict()`)
-- 日志: 使用 `logging.getLogger(__name__)`，不用 `print()`
+功能开发完成后，执行以下验证再提交。Agent 收尾流程详见 [AGENTS.md](../AGENTS.md#3-收尾流程)。
 
-### TypeScript / React
-- 所有组件 props 必须定义 interface
-- 避免 `any`，优先 `unknown` + 类型守卫
-- Redux: 状态通过 action 修改，不直接 mutate
-- 文件名: 组件 PascalCase，其他 camelCase
-- API 调用: 通过 `api/` 层，不在组件中直接 fetch
+### 必须项
 
-### Commit 规范
+```bash
+# 1. 后端模块导入检查
+cd trace-ai-cs && source .venv/bin/activate
+python -c "from server.app import app"
+# 预期输出: 无错误，静默退出
 
-```
-type(scope): description
-
-feat(server): add /rag/search endpoint
-fix(client): resolve AudioController undefined type
-docs: update configuration guide
-refactor(server): extract token generation to service
+# 2. 前端 TypeScript 类型检查
+cd client && npx tsc --noEmit
+# 预期输出: 无错误，静默退出
 ```
 
-类型: `feat` / `fix` / `docs` / `refactor` / `chore` / `style` / `test`
+### 如果新增了配置项
+
+对照 [CONFIGURATION.md](CONFIGURATION.md) 检查新配置项是否已文档化。
+
+### 如果新增了接口
+
+在浏览器打开 `http://localhost:3001/docs` 确认 Swagger 中显示新接口。
+
+### 如果新增了概念/术语
+
+检查 [GLOSSARY.md](GLOSSARY.md) 是否需要补充。
+
+### 代码规范
+
+代码规范与 Commit 约定见 [CONTRIBUTING.md](../CONTRIBUTING.md)。
