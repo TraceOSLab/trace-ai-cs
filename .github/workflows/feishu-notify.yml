@@ -1,0 +1,62 @@
+name: Feishu Notify (TraceOS)
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened]
+  push:
+
+jobs:
+  notify-feishu:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Feishu Notification
+        run: |
+          EVENT="${{ github.event_name }}"
+
+          if [ "$EVENT" = "issues" ]; then
+
+            ACTION="${{ github.event.action }}"
+            TITLE="${{ github.event.issue.title }}"
+            NUMBER="${{ github.event.issue.number }}"
+
+            if [ "$ACTION" = "opened" ]; then
+              TEXT="[TraceOS]\n🆕 Issue 创建\n#$NUMBER $TITLE"
+            elif [ "$ACTION" = "closed" ]; then
+              TEXT="[TraceOS]\n✅ Issue 已关闭\n#$NUMBER $TITLE"
+            else
+              TEXT="[TraceOS]\nℹ️ Issue 更新\n#$NUMBER $TITLE"
+            fi
+
+          elif [ "$EVENT" = "pull_request" ]; then
+
+            ACTION="${{ github.event.action }}"
+            TITLE="${{ github.event.pull_request.title }}"
+            NUMBER="${{ github.event.pull_request.number }}"
+
+            if [ "$ACTION" = "opened" ]; then
+              TEXT="[TraceOS]\n🔀 PR 创建\n#$NUMBER $TITLE"
+            elif [ "$ACTION" = "closed" ]; then
+
+              MERGED="${{ github.event.pull_request.merged }}"
+
+              if [ "$MERGED" = "true" ]; then
+                TEXT="[TraceOS]\n🚀 PR 已合并\n#$NUMBER $TITLE"
+              else
+                TEXT="[TraceOS]\n❌ PR 已关闭\n#$NUMBER $TITLE"
+              fi
+
+            else
+              TEXT="[TraceOS]\nℹ️ PR 更新\n#$NUMBER $TITLE"
+            fi
+
+          elif [ "$EVENT" = "push" ]; then
+            TEXT="[TraceOS]\n📦 Code Push\nRepo: ${{ github.repository }}"
+
+          fi
+
+          curl -X POST "${{ secrets.FEISHU_WEBHOOK }}" \
+          -H "Content-Type: application/json" \
+          -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$TEXT\"}}"
