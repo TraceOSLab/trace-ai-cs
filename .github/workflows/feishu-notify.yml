@@ -1,62 +1,233 @@
-name: Feishu Notify (TraceOS)
+name: Trace AI CS Dev Notify (Feishu Card)
 
 on:
   issues:
-    types: [opened, closed, reopened]
+    types: [opened, closed]
   pull_request:
-    types: [opened, closed, reopened]
-  push:
+    types: [opened, closed]
 
 jobs:
-  notify-feishu:
+  notify:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send Feishu Notification
+      - name: Send Feishu Card
         run: |
-          EVENT="${{ github.event_name }}"
+          REPO="${{ github.repository }}"
 
+          ISSUE_URL="https://github.com/${REPO}/issues/${{ github.event.issue.number }}"
+          PR_URL="https://github.com/${REPO}/pull/${{ github.event.pull_request.number }}"
+
+          EVENT="${{ github.event_name }}"
+          ACTION="${{ github.event.action }}"
+
+          BODY=""
+
+          # ================= ISSUE =================
           if [ "$EVENT" = "issues" ]; then
 
-            ACTION="${{ github.event.action }}"
-            TITLE="${{ github.event.issue.title }}"
             NUMBER="${{ github.event.issue.number }}"
+            TITLE="${{ github.event.issue.title }}"
 
             if [ "$ACTION" = "opened" ]; then
-              TEXT="[TraceOS]\n🆕 Issue 创建\n#$NUMBER $TITLE"
+
+              BODY=$(cat <<EOF
+{
+  "msg_type": "interactive",
+  "card": {
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "🆕 Issue #$NUMBER Created"
+      },
+      "template": "blue"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**$TITLE**"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "View Issue"
+            },
+            "type": "primary",
+            "url": "$ISSUE_URL"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+)
+
             elif [ "$ACTION" = "closed" ]; then
-              TEXT="[TraceOS]\n✅ Issue 已关闭\n#$NUMBER $TITLE"
-            else
-              TEXT="[TraceOS]\nℹ️ Issue 更新\n#$NUMBER $TITLE"
+
+              BODY=$(cat <<EOF
+{
+  "msg_type": "interactive",
+  "card": {
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "✅ Issue #$NUMBER Closed"
+      },
+      "template": "grey"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**$TITLE**"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "View Issue"
+            },
+            "type": "primary",
+            "url": "$ISSUE_URL"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+)
+
             fi
-
-          elif [ "$EVENT" = "pull_request" ]; then
-
-            ACTION="${{ github.event.action }}"
-            TITLE="${{ github.event.pull_request.title }}"
-            NUMBER="${{ github.event.pull_request.number }}"
-
-            if [ "$ACTION" = "opened" ]; then
-              TEXT="[TraceOS]\n🔀 PR 创建\n#$NUMBER $TITLE"
-            elif [ "$ACTION" = "closed" ]; then
-
-              MERGED="${{ github.event.pull_request.merged }}"
-
-              if [ "$MERGED" = "true" ]; then
-                TEXT="[TraceOS]\n🚀 PR 已合并\n#$NUMBER $TITLE"
-              else
-                TEXT="[TraceOS]\n❌ PR 已关闭\n#$NUMBER $TITLE"
-              fi
-
-            else
-              TEXT="[TraceOS]\nℹ️ PR 更新\n#$NUMBER $TITLE"
-            fi
-
-          elif [ "$EVENT" = "push" ]; then
-            TEXT="[TraceOS]\n📦 Code Push\nRepo: ${{ github.repository }}"
 
           fi
 
-          curl -X POST "${{ secrets.FEISHU_WEBHOOK }}" \
-          -H "Content-Type: application/json" \
-          -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$TEXT\"}}"
+          # ================= PR =================
+          if [ "$EVENT" = "pull_request" ]; then
+
+            NUMBER="${{ github.event.pull_request.number }}"
+            TITLE="${{ github.event.pull_request.title }}"
+            MERGED="${{ github.event.pull_request.merged }}"
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+
+            if [ "$ACTION" = "opened" ]; then
+
+              BODY=$(cat <<EOF
+{
+  "msg_type": "interactive",
+  "card": {
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "🔀 PR #$NUMBER Opened"
+      },
+      "template": "green"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**$TITLE**"
+        }
+      },
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "Branch: `$BRANCH`"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "View PR"
+            },
+            "type": "primary",
+            "url": "$PR_URL"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+)
+
+            elif [ "$ACTION" = "closed" ]; then
+
+              if [ "$MERGED" = "true" ]; then
+
+                TITLE2="🚀 PR #$NUMBER Merged"
+                COLOR="purple"
+              else
+                TITLE2="❌ PR #$NUMBER Closed"
+                COLOR="red"
+              fi
+
+              BODY=$(cat <<EOF
+{
+  "msg_type": "interactive",
+  "card": {
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "$TITLE2"
+      },
+      "template": "purple"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**$TITLE**"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "View PR"
+            },
+            "type": "primary",
+            "url": "$PR_URL"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+)
+
+            fi
+
+          fi
+
+          # ================= SEND =================
+          if [ -n "$BODY" ]; then
+            curl -X POST "${{ secrets.FEISHU_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY"
+          fi
