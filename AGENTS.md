@@ -160,7 +160,10 @@ deactivate                        # 退出
 | POST | `/getScenes` | 获取场景列表 + RTC Token |
 | POST | `/proxy?Action=StartVoiceChat` | 开启 AI 对话 |
 | POST | `/proxy?Action=StopVoiceChat` | 停止 AI 对话 |
-| POST | `/llm/callback` | CustomLLM 回调 (SSE 流式) |
+| POST | `/llm/callback` | CustomLLM 回调 (RAG + LLM 流式) |
+| POST | `/llm/debug/chat` | Debug 流式对话 |
+| POST | `/llm/debug/chat/sync` | Debug 非流式对话 (JSON) |
+| POST | `/llm/debug/rag` | Debug 知识库检索 |
 
 调试接口：`http://localhost:3001/docs` (Swagger UI)
 
@@ -171,4 +174,4 @@ deactivate                        # 退出
 | 前端 | React 18, TypeScript 5.6, Vite 6, Redux Toolkit 2.5, Arco Design 2.65 |
 | 后端 | Python 3.11+, FastAPI 0.115, httpx 0.28, Pydantic 2.10 |
 | RTC | @volcengine/rtc 4.66 |
-| LLM | OpenAI 兼容 API (CustomLLM 回调桥接) |
+| LLM | 方舟 Ark (OpenAI 兼容接口) + 火山知识库 RAG |

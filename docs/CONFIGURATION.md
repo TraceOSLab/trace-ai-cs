@@ -5,16 +5,17 @@
 项目配置分**三层**，由上至下：
 
 ```
-.env                        ← 账号凭证 (gitignore)
+.env                        ← 主账号凭证 (gitignore)
   └── server/scenes/*.json   ← 场景业务配置 (gitignore)
-        └── server/services/llm_channel.py ← LLM 渠道配置 (git 跟踪)
+        ├── LLMChannel       ← LLM 渠道配置 (Ark api_key/model 等)
+        └── RAGConfig        ← RAG 知识库配置
 ```
 
 加载链路：`load_dotenv()` → `read_files()` → `interpolate_env()` — 最终所有 `${VAR}` 被替换为环境变量真实值。
 
 ---
 
-## 第一层: `.env` — 账号凭证
+## 第一层: `.env` — 主账号凭证
 
 **模板文件**: `.env.example` (git 跟踪)  
 **真实文件**: `.env` (gitignore)
@@ -23,14 +24,12 @@
 |------|:--:|------|
 | `VOLC_ACCESS_KEY_ID` | ✅ | 火山引擎 AccessKey，从控制台"密钥管理"获取 |
 | `VOLC_SECRET_KEY` | ✅ | 火山引擎 SecretKey |
-| `CUSTOMLLM_CALLBACK_URL` | ❌ | CustomLLM 模式时的回调地址，必须是**公网 URL**（开发用 ngrok） |
 
 示例 `.env`：
 
 ```bash
 VOLC_ACCESS_KEY_ID=AKLTxxxxxxxxxxxxxxxx
 VOLC_SECRET_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-CUSTOMLLM_CALLBACK_URL=https://your-domain.com/llm/callback
 ```
 
 ---
@@ -45,9 +44,11 @@ CUSTOMLLM_CALLBACK_URL=https://your-domain.com/llm/callback
 ```json
 {
   "SceneConfig": { ... },     // 前端展示
-  "AccountConfig": { ... },   // 火山引擎账号 (引用 .env)
+  "AccountConfig": { ... },   // AK/SK (引用 .env)
   "RTCConfig": { ... },       // RTC 连接信息
-  "VoiceChat": { ... }        // AIGC 对话配置
+  "VoiceChat": { ... },       // AIGC 对话配置
+  "LLMChannel": { ... },      // LLM 渠道配置
+  "RAGConfig": { ... }        // RAG 知识库配置
 }
 ```
 
@@ -120,10 +121,8 @@ CUSTOMLLM_CALLBACK_URL=https://your-domain.com/llm/callback
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `Mode` | string | `"CustomLLM"` 使用自定义回调模式 |
-| `Url` | string | CustomLLM 回调地址，填 `${CUSTOMLLM_CALLBACK_URL}` |
+| `Url` | string | CustomLLM 回调地址 (ngrok 或公网 URL) |
 | `APIKey` | string | 回调鉴权 Token (可选) |
-
-> **火山方舟模式** (`Mode: "ArkV3"`): 配置 `EndPointId` + `SystemMessages`，不经过 `/llm/callback`。
 
 #### Config.AvatarConfig — 数字人
 
@@ -142,25 +141,56 @@ CUSTOMLLM_CALLBACK_URL=https://your-domain.com/llm/callback
 - `0` = 语音打断模式（用户开口即打断 AI）
 - `1` = 手动打断模式（需点击"打断"按钮）
 
----
+### 2.6 LLMChannel — LLM 渠道配置
 
-## 第三层: `server/services/llm_channel.py` — LLM 渠道
+CustomLLM 模式下的真实 LLM 配置，在场景 JSON 中填写。
 
-CustomLLM 模式的**真实 LLM 转发配置**，在代码中修改后生效：
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|:--:|------|
+| `api_key` | string | ✅ | 方舟 Ark API Key |
+| `base_url` | string | ❌ | Ark 端点，默认 `https://ark.cn-beijing.volces.com/api/v3` |
+| `model` | string | ✅ | 模型 endpoint ID，如 `ep-xxx` |
+| `max_tokens` | number | ❌ | 最大输出 Token，默认 4096 |
+| `temperature` | number | ❌ | 采样温度，默认 0.3 |
 
-```python
-_LLM_CONFIG = {
-    "channel_id": "openai",             # 渠道标识 (仅日志)
-    "api_key": "",                     # LLM API Key
-    "model": "gpt-4o",                 # 模型名称
-    "base_url": "https://api.openai.com/v1",  # API 地址
-    "system_prompt": "你是智能客服助手...",  # System Prompt
-    "max_tokens": 4096,                # 最大输出 Token
-    "temperature": 0.7,                # 采样温度
+示例：
+
+```json
+"LLMChannel": {
+    "api_key": "ark-xxxxxxxx",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "model": "ep-20260605164910-pqqvd",
+    "max_tokens": 4096,
+    "temperature": 0.3
 }
 ```
 
-**支持的接口格式**: OpenAI Chat Completions 兼容 API (带 SSE stream)。任何实现 `POST /v1/chat/completions` + `stream: true` 的服务均可接入。
+### 2.7 RAGConfig — RAG 知识库配置
+
+检索增强生成配置，对接火山引擎知识库 API。
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|:--:|------|
+| `enabled` | boolean | ❌ | 是否启用 RAG，默认 true |
+| `collection_name` | string | ✅ | 知识库集合名称 |
+| `project_name` | string | ❌ | 项目名称，默认 `"default"` |
+| `account_id` | string | ✅ | 火山引擎主账号 ID |
+| `limit` | number | ❌ | 检索条数，默认 3 |
+| `host` | string | ❌ | 知识库 API 域名 |
+| `region` | string | ❌ | 区域，默认 `cn-north-1` |
+| `service` | string | ❌ | 服务名，默认 `air` |
+
+示例：
+
+```json
+"RAGConfig": {
+    "enabled": true,
+    "collection_name": "dw_ai",
+    "project_name": "default",
+    "account_id": "kb-2580e8a6357082fb",
+    "limit": 3
+}
+```
 
 ---
 
@@ -173,10 +203,13 @@ cp .env.example .env
 
 # 2. 场景
 cp server/scenes/Custom.example.json server/scenes/Custom.json
-# 编辑 Custom.json → 填入 AppId / AppKey / TaskId / ASR.AppId / TTS.appid
+# 编辑 Custom.json:
+#   - 填入 AppId / AppKey / TaskId / ASR.AppId / TTS.appid
+#   - LLMChannel: 填入 api_key 和 model
+#   - VoiceChat.Config.LLMConfig.Url: 填入 ngrok 回调地址
 
-# 3. LLM (可选)
-# 编辑 server/services/llm_channel.py → 修改 _LLM_CONFIG
+# 3. RAG (可选)
+# 编辑 Custom.json → RAGConfig 填入 account_id 和 collection_name
 
 # 4. 启动
 source .venv/bin/activate
@@ -215,4 +248,6 @@ def interpolate_env(obj):
 | RTC AppKey | `Custom.json` | ❌ | 应用级凭证 |
 | RTC AppId | `Custom.json` | ❌ | 应用标识 (非敏感但属私有) |
 | ASR/TTS AppId | `Custom.json` | ❌ | 服务标识 |
-| LLM API Key | `llm_channel.py` | ✅ | ⚠️ 当前在 git 跟踪文件中，建议移到 `.env` |
+| Ark API Key | `Custom.json` → `LLMChannel.api_key` | ❌ | LLM 调用凭证 |
+| 知识库 Account ID | `Custom.json` → `RAGConfig.account_id` | ❌ | 知识库访问标识 |
+| CustomLLM 回调 URL | `Custom.json` → `VoiceChat.Config.LLMConfig.Url` | ❌ | 公网回调地址 |

@@ -1,5 +1,23 @@
 # CHANGELOG.md
 
+## [Unreleased]
+
+### 新增
+- `server/services/llm_service.py` — LLM 服务，对接方舟 Ark (OpenAI 兼容接口)，支持流式/非流式
+- `server/services/rag_service.py` — RAG 检索服务，对接火山知识库 API (SignerV4 签名)
+- `server/routers/llm_debug.py` — Debug 接口:
+  - `POST /llm/debug/chat` SSE 流式对话
+  - `POST /llm/debug/chat/sync` JSON 非流式对话
+  - `POST /llm/debug/rag` JSON 知识库检索
+- 场景配置新增 `LLMChannel`(Ark) 和 `RAGConfig`(知识库) 字段
+
+### 变更
+- `server/services/llm_channel.py` 重写: 移除硬编码 OpenAI 配置，改为 RAG 检索 + LLM 调用管线
+- `server/routers/llm_callback.py` 从场景配置读取 LLMChannel/RAGConfig/AccountConfig
+- `server/app.py` 注册 debug 路由，场景配置注入 callback/debug 路由
+- `.env` 精简为仅主账号 AK/SK，其他配置移至场景 JSON
+- `server/scenes/Custom.example.json` 模板更新，新增 LLMChannel + RAGConfig
+
 ## [1.1.0] — 2026-06-16
 
 ### 新增

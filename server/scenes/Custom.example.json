@@ -47,7 +47,7 @@
       },
       "LLMConfig": {
         "Mode": "CustomLLM",
-        "Url": "${CUSTOMLLM_CALLBACK_URL}",
+        "Url": "",
         "APIKey": ""
       },
       "AvatarConfig": {
@@ -63,12 +63,20 @@
     }
   },
   "LLMChannel": {
-    "channel_id": "openai",
     "api_key": "",
-    "model": "gpt-4o",
-    "base_url": "https://api.openai.com/v1",
-    "system_prompt": "你是智能客服助手，请简洁准确地回答用户的问题。",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "model": "doubao-seed-1-6",
     "max_tokens": 4096,
-    "temperature": 0.7
+    "temperature": 0.3
+  },
+  "RAGConfig": {
+    "enabled": true,
+    "collection_name": "test_knowledgebase",
+    "project_name": "default",
+    "account_id": "",
+    "limit": 3,
+    "host": "api-knowledgebase.mlp.cn-beijing.volces.com",
+    "region": "cn-north-1",
+    "service": "air"
   }
 }

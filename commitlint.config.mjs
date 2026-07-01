@@ -9,6 +9,7 @@ export default {
         'style', 'test', 'build', 'perf', 'ci', 'revert',
       ],
     ],
-    'subject-case': [2, 'always', 'lower-case'],
+    // 放宽 subject 大小写限制，允许 LLM/RAG/Ark/RTC/SSE 等专有缩写
+    'subject-case': [0],
   },
 };

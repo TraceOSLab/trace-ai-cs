@@ -15,9 +15,12 @@ from .routers import (
     scene_router,
     proxy_router,
     llm_callback_router,
+    llm_debug_router,
 )
 from .routers.scene import init_scenes as init_scene_router
 from .routers.proxy import init_scenes as init_proxy_router
+from .routers.llm_callback import init_callback_scenes
+from .routers.llm_debug import init_debug_scenes
 
 # 加载 .env
 load_dotenv()
@@ -32,13 +35,18 @@ logger = logging.getLogger(__name__)
 SCENES = read_files("./scenes", ".json")
 init_scene_router(SCENES)
 init_proxy_router(SCENES)
+init_callback_scenes(SCENES)
+init_debug_scenes(SCENES)
 
 # ── FastAPI 应用 ──────────────────────────────────────────
 
 app = FastAPI(
     title="Trace AI Conversational Server",
-    description=("基于火山引擎 RTC 的实时对话式 AI 后端服务\n\n"),
-    version="1.1.0",
+    description=(
+        "基于火山引擎 RTC 的实时对话式 AI 后端服务\n\n"
+        "LLM: 方舟 Ark (OpenAI 兼容) + RAG: 火山知识库检索增强"
+    ),
+    version="1.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -55,6 +63,7 @@ app.include_router(health_router)
 app.include_router(scene_router)
 app.include_router(proxy_router)
 app.include_router(llm_callback_router)
+app.include_router(llm_debug_router)
 
 if __name__ == "__main__":
     import uvicorn

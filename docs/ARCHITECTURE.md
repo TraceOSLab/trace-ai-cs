@@ -20,11 +20,13 @@
      │  POST /getScenes        │
      │  POST /proxy            │───▶ 火山引擎 OpenAPI
      │  POST /llm/callback ◀───┼───  CustomLLM 回调
+     │  POST /llm/debug/*      │───▶ 方舟 Ark + 知识库 (Debug)
      └───────────┬─────────────┘
-                 │ HTTP (HTTPS 推荐)
+                 │ HTTP
      ┌───────────▼─────────────┐
-     │  第三方 LLM API           │
-     │  (OpenAI / DeepSeek 等)  │
+     │  方舟 Ark LLM            │
+     │  (OpenAI 兼容接口)        │
+     │  + 火山知识库 RAG          │
      └─────────────────────────┘
 ```
 
@@ -84,7 +86,7 @@ Store
 | `useJoin()` | `useCommon.ts` | 加入房间流程（创建引擎→加入→启麦→启动AI） |
 | `useLeave()` | `useCommon.ts` | 离开房间流程（停止采集→停AI→离开→清状态） |
 | `useRtcListeners()` | `listenerHooks.ts` | RTC 事件监听（用户进出/流状态/二进制消息等） |
-| `useMessageHandler()` | `handler.ts` | 解析 RTC 二进制消息（状态/字幕/FunctionCall） |
+| `useMessageHandler()` | `handler.ts` | 解析 RTC 二进制消息（TLV 编码） |
 
 ### RTC 消息协议
 
@@ -120,19 +122,21 @@ MainPage
       └─ RtcClient.leaveRoom() → 退出房间
 ```
 
+---
+
 ## 后端架构
 
-### 路由注册 (`server/app.py`)
+### 入口 (`server/app.py`)
 
-```python
-app = FastAPI(title="Trace AI Conversational Server")
-# 全局 CORS，允许所有来源
-app.add_middleware(CORSMiddleware, allow_origins=["*"], ...)
+```
+scenes/*.json ──▶ read_files() ──▶ init_*_scenes() ──▶ router 注入
+.env          ──▶ load_dotenv()
 
-app.include_router(health_router)         # /health
-app.include_router(scene_router)           # /getScenes
-app.include_router(proxy_router)           # /proxy
-app.include_router(llm_callback_router)    # /llm/callback
+app.include_router(health_router)              # /health
+app.include_router(scene_router)               # /getScenes
+app.include_router(proxy_router)               # /proxy
+app.include_router(llm_callback_router)        # /llm/callback
+app.include_router(llm_debug_router)           # /llm/debug/*
 ```
 
 ### 路由 → 服务 → 数据层 关系
@@ -144,8 +148,12 @@ routers/scene.py → services/scene_service.py → rtc_token.py (AccessToken)
 routers/proxy.py → services/proxy_service.py → volcengine SignerV4 (HMAC签名)
                     (签名转发到 rtc.volcengineapi.com)
 
-routers/llm_callback.py → services/llm_channel.py → httpx.AsyncClient
-                            (SSE 流式转发到 OpenAI 兼容 API)
+routers/llm_callback.py → services/llm_channel.py → services/llm_service.py (流式)
+                         → services/rag_service.py  (RAG 检索)
+                         → 场景 JSON (LLMChannel + RAGConfig + AccountConfig)
+
+routers/llm_debug.py → services/llm_service.py (流式/非流式)
+                     → services/rag_service.py (知识库检索)
 ```
 
 ### 请求处理流程
@@ -193,37 +201,85 @@ routers/llm_callback.py → services/llm_channel.py → httpx.AsyncClient
      "stream": true, "temperature": 0.1, "max_tokens": 100, "top_p": 0.9,
      "model": "doubao-32k", "stream_options": { "include_usage": true }
    }
-2. router 解析 messages, temperature, max_tokens, top_p
+2. router 解析 messages，从场景配置读取 LLMChannel / RAGConfig / AccountConfig
 3. services/llm_channel.py::chat_completion_stream()
-   a. 插入 system prompt
-   b. httpx 流式 POST 到 _LLM_CONFIG.base_url + /chat/completions
-   c. 将 OpenAI SSE chunk 转换为 CustomLLM 规范格式
-   d. 流式返回: data: {...}\n\n ... data: [DONE]\n\n
+   a. 提取最后一条 user 消息 → RAG 检索 (rag_service.retrieve)
+   b. 构造 system prompt (角色定义 + RAG 上下文)
+   c. httpx 流式 POST 到方舟 Ark (OpenAI 兼容端点)
+   d. 转发 SSE chunk: data: {...}\n\n ... data: [DONE]\n\n
 4. 返回 StreamingResponse (media_type="text/event-stream")
 ```
 
-### LLM 渠道配置 (`services/llm_channel.py`)
+#### POST /llm/debug/chat (流式 Debug)
 
-```python
-_LLM_CONFIG = {
-    "channel_id": "openai",
-    "api_key": "",
-    "model": "gpt-4o",
-    "base_url": "https://api.openai.com/v1",
-    "system_prompt": "你是智能客服助手，请简洁准确地回答用户的问题。",
-    "max_tokens": 4096,
-    "temperature": 0.7,
-}
+```
+1. 接受 ChatDebugRequest { messages, scene, temperature, max_tokens, enable_rag }
+2. 读取场景配置 → RAG 检索 (可选)
+3. 调用 llm_service.chat_stream() → SSE 流式返回
 ```
 
-切换模型只需修改此字典。所有 OpenAI 兼容接口均支持（chat/completions + SSE stream）。
+#### POST /llm/debug/chat/sync (非流式 Debug)
+
+```
+1. 同 /chat，但调用 llm_service.chat() → 一次性 JSON 返回
+```
+
+#### POST /llm/debug/rag (知识库 Debug)
+
+```
+1. 接受 RagDebugRequest { query, scene, limit }
+2. 调用 rag_service.retrieve() → JSON 返回检索内容
+```
+
+### LLM 服务 (`services/llm_service.py`)
+
+- `LLMService` 类：封装方舟 Ark (OpenAI 兼容接口) 调用
+- `chat_stream()`: 流式对话，yield SSE chunk
+- `chat()`: 非流式对话，一次性返回完整回复
+- `configure()`: 运行时注入场景渠道配置 (api_key, base_url, model, temperature, max_tokens)
+- 内置角色 system prompt 模板 + RAG 上下文拼接
+
+### RAG 服务 (`services/rag_service.py`)
+
+- `RagService` 类：封装火山引擎知识库 API
+- `retrieve(query, config, ak, sk)`: SignerV4 签名 → POST 搜索 → 提取 result_list[].content → 拼接返回
+- 配置从场景 JSON 的 `RAGConfig` 读取 (collection_name, project_name, account_id 等)
+
+### 场景配置结构 (`scenes/Custom.json`)
+
+```json
+{
+  "SceneConfig": { ... },      // 前端展示
+  "AccountConfig": { ... },    // AK/SK 引用 .env
+  "RTCConfig": { ... },        // RTC 连接信息
+  "VoiceChat": {               // AIGC 对话配置
+    "Config": {
+      "LLMConfig": { "Mode": "CustomLLM", "Url": "..." }
+    }
+  },
+  "LLMChannel": {              // LLM 渠道配置
+    "api_key": "...",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "model": "ep-xxx",
+    "max_tokens": 4096,
+    "temperature": 0.3
+  },
+  "RAGConfig": {               // RAG 知识库配置
+    "enabled": true,
+    "collection_name": "dw_ai",
+    "project_name": "default",
+    "account_id": "...",
+    "limit": 3
+  }
+}
+```
 
 ### 启动流程 (`server/app.py`)
 
 ```
 1. from dotenv import load_dotenv; load_dotenv()    → 加载 .env
 2. read_files("./scenes", ".json")                  → 加载场景 JSON
-3. init_scene_router(SCENES) / init_proxy_router(SCENES) → 注入场景数据
+3. init_scene_router() / init_proxy_router() / init_callback_scenes() / init_debug_scenes()
 4. FastAPI() + CORS + include_router                → 创建应用
 5. uvicorn.run("server.app:app", host="127.0.0.1", port=3001)
 ```
@@ -252,6 +308,7 @@ _LLM_CONFIG = {
 ```
 开始: StartVoiceChat → 火山引擎创建 AI 智能体 → 开始处理音频流
 进行中: 音频流实时交互 + 字幕/状态消息
+      ASR → 火山引擎 → CustomLLM 回调 → RAG 检索 → Ark LLM → TTS
 结束: StopVoiceChat → 火山引擎销毁 AI 智能体
 ```
 
@@ -261,6 +318,7 @@ _LLM_CONFIG = {
 2. **RTC Client 单例**: `export default new RTCClient()` 全局共享
 3. **场景 JSON 双层加载**: 优先 `.json`，fallback `.example.json`，避免首次部署无配置报错
 4. **环境变量插值**: `${VAR}` 语法在 JSON 中，通过 `interpolate_env()` 递归替换
-5. **CustomLLM 回调**: 后端作为中间人，接收火山引擎请求 → 转发 LLM → 转换格式返回。解决了火山引擎不能直接访问内网 LLM 的问题
+5. **CustomLLM 回调 + RAG**: 后端收到回调 → RAG 检索 → 拼入 system prompt → 调用方舟 Ark → SSE 流式返回
 6. **Token 动态生成**: 不在 JSON 中存储 Token，每次 `/getScenes` 调用时用 HMAC-SHA256 生成新 Token（24h有效期）
 7. **无鉴权中间件**: 后端所有接口无需认证，适合内网/开发环境。部署到公网需加安全措施
+8. **配置分层**: `.env` 仅主账号 AK/SK；LLM/RAG/回调地址等业务配置在场景 JSON 中

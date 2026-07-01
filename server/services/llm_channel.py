@@ -2,154 +2,65 @@
 LLM 渠道转发层
 
 火山引擎通过 CustomLLM 回调 /llm/callback，
-我们把回调请求转发到真实的 LLM 服务（OpenAI / DeepSeek / 自研）。
+我们将请求转发到 RAG 检索 + LLM 服务。
 
-修改渠道：编辑 _LLM_CONFIG 中的配置即可。
+流程：用户消息 → RAG 检索 → 拼接 system prompt → 调用 LLM → SSE 流式返回
 """
 
-import json
 import logging
-import uuid
 from typing import AsyncGenerator, Dict, List
 
-import httpx
+from .llm_service import llm_service
+from .rag_service import rag_service
 
 logger = logging.getLogger(__name__)
 
 
-# ═══════════════════════════════════════════════════════════
-# LLM 渠道配置（在这里修改即可切换模型）
-# ═══════════════════════════════════════════════════════════
-
-_LLM_CONFIG = {
-    "channel_id": "openai",  # 标识，仅做日志用
-    "api_key": "",  # API Key（可从环境变量读取）
-    "model": "gpt-4o",  # 模型名
-    "base_url": "https://api.openai.com/v1",  # API 地址
-    "system_prompt": "你是智能客服助手，请简洁准确地回答用户的问题。",
-    "max_tokens": 4096,
-    "temperature": 0.7,
-}
-
-
-# ═══════════════════════════════════════════════════════════
-# 流式转发
-# ═══════════════════════════════════════════════════════════
-
-
-async def _stream_openai_compatible(
-    client: httpx.AsyncClient,
-    config: dict,
-    messages: List[Dict[str, str]],
-    max_tokens: int,
-    temperature: float,
-    top_p: float = 0.9,
-) -> AsyncGenerator[str, None]:
-    """
-    调用 OpenAI 兼容接口，将 SSE chunk 转换为火山引擎 CustomLLM 规范格式。
-    """
-    url = f"{config['base_url'].rstrip('/')}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {config['api_key']}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": config["model"],
-        "messages": messages,
-        "stream": True,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "top_p": top_p,
-        "stream_options": {"include_usage": True},
-    }
-
-    session_id = str(uuid.uuid4())
-
-    async with client.stream("POST", url, headers=headers, json=payload) as resp:
-        async for line in resp.aiter_lines():
-            line = line.strip()
-            if not line:
-                continue
-            if not line.startswith("data: "):
-                continue
-
-            data_str = line[6:]
-            if data_str == "[DONE]":
-                yield "data: [DONE]\n\n"
-                return
-
-            try:
-                openai_chunk = json.loads(data_str)
-            except json.JSONDecodeError:
-                continue
-
-            choices = openai_chunk.get("choices", [])
-            ve_choices = []
-            for ch in choices:
-                ve_choices.append(
-                    {
-                        "finish_reason": ch.get("finish_reason"),
-                        "index": ch.get("index", 0),
-                        "delta": ch.get("delta", {}),
-                    }
-                )
-
-            ve_chunk = {
-                "id": session_id,
-                "object": "chat.completion.chunk",
-                "choices": ve_choices,
-                "model": config["model"],
-                "created": openai_chunk.get("created", 0),
-            }
-
-            usage = openai_chunk.get("usage")
-            if usage:
-                ve_chunk["usage"] = usage
-
-            yield f"data: {json.dumps(ve_chunk, ensure_ascii=False)}\n\n"
-
-
-# ═══════════════════════════════════════════════════════════
-# 对外接口
-# ═══════════════════════════════════════════════════════════
-
-
 async def chat_completion_stream(
     messages: List[Dict[str, str]],
-    max_tokens: int = 4096,
-    temperature: float = 0.7,
-    top_p: float = 0.9,
+    llm_config: dict,
+    rag_config: dict | None = None,
+    access_key_id: str = "",
+    secret_key: str = "",
 ) -> AsyncGenerator[str, None]:
     """
-    将 CustomLLM 回调请求转发到配置的 LLM 渠道，流式返回。
+    执行 RAG 检索 + LLM 流式调用。
 
     Args:
-        messages: 火山引擎回调的消息列表
-        max_tokens, temperature, top_p: 模型参数
+        messages: 火山引擎回调的消息列表 (无 system role)
+        llm_config: LLM 渠道配置 (api_key, base_url, model, temperature, max_tokens)
+        rag_config: RAG 配置 (collection_name, project_name, account_id 等)，None 则跳过检索
+        access_key_id: 火山引擎 AK (用于 RAG 签名)
+        secret_key: 火山引擎 SK (用于 RAG 签名)
 
     Yields:
-        SSE 格式字符串，符合火山引擎 CustomLLM 回调规范。
+        SSE 格式字符串
     """
-    config = _LLM_CONFIG
+    # 注入 LLM 配置
+    llm_service.configure(llm_config)
 
-    # 插入 system prompt（火山引擎回调的消息中没有 system role）
-    full_messages = [{"role": "system", "content": config["system_prompt"]}]
-    full_messages.extend(messages)
+    # RAG 检索
+    rag_context = ""
+    if rag_config and rag_config.get("enabled", True):
+        # 取最后一条 user 消息作为查询
+        user_query = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_query = msg.get("content", "")
+                break
 
-    logger.info(
-        "LLM channel=%s model=%s messages=%d",
-        config["channel_id"],
-        config["model"],
-        len(full_messages),
-    )
+        if user_query:
+            rag_context = await rag_service.retrieve(
+                query=user_query,
+                config=rag_config,
+                access_key_id=access_key_id,
+                secret_key=secret_key,
+            )
+            logger.info("RAG context length: %d", len(rag_context))
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        async for chunk in _stream_openai_compatible(
-            client,
-            config,
-            full_messages,
-            max_tokens,
-            temperature,
-            top_p,
-        ):
-            yield chunk
+    # LLM 流式调用
+    async for chunk in llm_service.chat_stream(
+        history_messages=messages,
+        rag_context=rag_context,
+    ):
+        yield chunk
