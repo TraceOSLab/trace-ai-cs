@@ -111,7 +111,7 @@ class _ByteBuf:
             self.put_uint16(0)
             return self
         self.put_uint16(len(m))
-        for key, value in m.items():
+        for key, value in sorted(m.items()):
             self.put_uint16(key)
             self.put_uint32(value)
         return self

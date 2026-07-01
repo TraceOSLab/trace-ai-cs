@@ -37,14 +37,7 @@ init_proxy_router(SCENES)
 
 app = FastAPI(
     title="Trace AI Conversational Server",
-    description=(
-        "基于火山引擎 RTC 的实时对话式 AI 后端服务\n\n"
-        "## 接口\n"
-        "- `GET /health` — 健康检查\n"
-        "- `POST /getScenes` — 获取场景列表 + RTC Token\n"
-        "- `POST /proxy` — 代理火山引擎 OpenAPI（StartVoiceChat / StopVoiceChat）\n"
-        "- `POST /llm/callback` — CustomLLM 回调（火山引擎调用，转发到配置的 LLM 渠道）"
-    ),
+    description=("基于火山引擎 RTC 的实时对话式 AI 后端服务\n\n"),
     version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -65,4 +58,5 @@ app.include_router(llm_callback_router)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("server.app:app", host="127.0.0.1", port=3001, reload=True)
