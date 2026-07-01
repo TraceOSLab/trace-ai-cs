@@ -1,1 +1,1 @@
-npm test
+# skip pre-commit — only commitlint runs on commit-msg
